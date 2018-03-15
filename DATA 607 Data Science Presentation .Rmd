@@ -1,0 +1,72 @@
+---
+title: "DATA 607 Data Science in Context Presentation"
+author: "Vinicio Haro"
+date: "3/13/2018"
+output: html_document
+---
+
+This is the continuation of the TF-IDF presentation. 
+
+We previously examined the TF-IDF algorithm and looked at a basic example in order to highlight the concept. 
+This part of the presentation will now focus on a more practical application of tf-idf in r. I modified a really intuitive example I found cited in the power point.  
+
+We need to install the tm and dplyr libraries
+```{r}
+library(tm)
+library(dplyr)
+```
+
+Lets create a corpus that consists of mini documents 
+```{r}
+documents<-c("Data science is fun", "machine learning is cool. I should document more of my work.", "this is a Document", "hello darkness my old friend", "I am good at saving data science notes as word documents", "the science data machine learning hello data")
+```
+
+We need to calculate the term frequency. The tm library allows us to form a matrix where each row belongs to the words in the corpus and each column is the document number. Remeber we made 5 mini documents total so there should be 6 columns. 
+
+Each entry in our matrix is the number of times a word appears in a document. For example, the word data appears once in document 1, once in document 5, and twice in document 6.
+```{r}
+corpus <- Corpus( VectorSource(documents) )
+control_list <- list(removePunctuation = TRUE, stopwords = TRUE, tolower = TRUE)
+tdm <- TermDocumentMatrix(corpus, control = control_list)
+
+# print
+( tf <- as.matrix(tdm) )
+```
+
+Why do words such as "is" not appear in our matrix? Also, were there not upper case letters? 
+Notice that I set tolower=TRUE and stopwords=TRUE. This makes every word lower case and disregards common stop words such as "the" or "is." removePunctuation=TRUE removes any commas or periods. 
+
+We need to compute the inverse document frequency. (Recall our example with the word dog) 
+The use of !=0 is just to ensure we won't divide by zero. Theoretically, if you do rowsum, there should be no zero, however with larger Corpus, it is best to play it safe. 
+
+```{r}
+( idf <- log( ncol(tf) / ( rowSums(tf != 0) ) ) )
+```
+
+We now have the computed inverse document frequency for each of the words in our term frequency matrix. We can diagonalize these results into a matrix. This is necessary to compute the full weight of each word and have the entire tf-idf metric since we need to compute a cross product to find our tf-idf. 
+```{r}
+( idf <- diag(idf) )
+```
+
+compute the cross product 
+```{r}
+tf_idf <- crossprod(tf, idf)
+colnames(tf_idf) <- rownames(tf)
+tf_idf
+```
+
+We still need to normalize our results. In order to normalize the results, we take each document vector and divide by its norm (length). This is required in order to eliminate any bias that may arise because of document length. Lets say one document is longer than the other, then it has a better chance to have a certain word multiple times. This will give the word the appearance of being important even if it may not be within the corpus. 
+
+```{r}
+tf_idf / sqrt( rowSums( tf_idf^2 ) )
+```
+
+How does it compare to our original corpus? 
+```{r}
+documents 
+```
+
+The word data appears in 3 of our documents. The scores assigned to the word data are under .6
+If we compare this to the word "fun", which only appears once, we can see that "fun" has a much higher score. This is an example of the inverse relationship in tf-idf
+
+With tf-idf, a user can perform K means clustering to gain even furthur insight. In reality, a corpus is usually a folder that exists as your working directory. It may contain as many documents as you need. From reading forums on stack overflow, it seems that txt file is the desired format for documents.  
